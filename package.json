@@ -1,0 +1,29 @@
+{
+  "name": "bamazon",
+  "version": "1.0.0",
+  "description": "amazon-like storefront using mysql and CLI.",
+  "main": "bamazonCustomer.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/All-isa/letsbamazon.git"
+  },
+  "keywords": [
+    "mysql",
+    "CLI"
+  ],
+  "author": "Allisa Liberto",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/All-isa/letsbamazon/issues"
+  },
+  "homepage": "https://github.com/All-isa/letsbamazon#readme",
+  "dependencies": {
+    "cli-table": "^0.3.1",
+    "inquirer": "^5.2.0",
+    "mysql": "^2.15.0",
+    "npm": "^5.8.0"
+  }
+}
