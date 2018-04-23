@@ -1,9 +1,10 @@
-var mysql = require('mysql');
-var inquire = require('inquirer');
-var Table = require('cli-table');
+var mysql = require("mysql");
+var inquire = require("inquirer");
+var Table = require("cli-table");
+var colors = require("colors");
 
 var connection = mysql.createConnection ({
-    host: 'localhost',
+    host: "localhost",
     port: 3306,
     user: "root",
     password: "password",
@@ -11,6 +12,7 @@ var connection = mysql.createConnection ({
 });
 
 var inventory = [];
+var total = 0;
 
 connection.connect(function(err) {
     if (err) throw err;
@@ -18,86 +20,91 @@ connection.connect(function(err) {
     display();
 });
 
-
 function display() {
-    console.log("Welcome to the Bamazon grocery shop, here are our current available items.");
+    console.log("Welcome to the Bamazon grocery shop, here are our current stock of available items.");
     connection.query("SELECT * FROM products", function (err, results) {
     var table = new Table({
     head: ['ID', 'Product', 'Department', 'Price', 'Quantity']
+    , colWidths: [10,10,10,10,10]
     })
     results.forEach(function(row) {
-      var newRow = [row.id, row.product_name, row.department_name, "$" + row.price, row.stock_quantity]
-        table.push(newRow)
-        inventory.push(row.id)
+      var newRow = [row.id, row.product_name, row.department_name, "$" + row.price, row.stock_quantity];
+        table.push(newRow);
+        inventory.push(row.id);
   })
 console.log(table.toString());
-start();
+pickItem();
 });
-
-function start() {
-inquire.prompt ([
-    {
-        type: "input",
-        name: "whatItem",
-        message: "Please select which item you would like to purchase by typing the ID?",
-        validate: function(input) {
-            if (Number.isInteger(parseInt(input)) === true && (inventory.indexOf(parseFloat(input)) !== -1)) {
-              return true
-            }
-            else {
-              console.log("\nPlease enter a valid item ID to continue.")
-            }
-        }
-    },
-    {
-        type: "input",
-        name: "quantity",
-        message: "How much of this item would you like?",
-        validate: function (value) {
-            if (isNaN(value) === false) {
-                return true;
-            } else {
-            console.log("\nPlease enter a valid quantity");
-                return false;
-        }}
-    },
-]).then(function(answer) {
-    var choice;
-    var quantity = parseInt(answer.quantity);
-    connection.query("SELECT * FROM products", function(err, res) {
-        res.forEach(function(row) {
-            if (parseInt(answer.whatItem) === row.id) {
-                choice = row;
-            }
-        })
-        if ((choice.stock_quantity) > 0) {
-            // buyItems(choice, quantity);
-        } else {
-            console.log("Sorry we are out of stock for that size of order");
-        }
-    });
 }
-)}
-// function buyItems(item, quantity) {
-//     var sales = (item.price * quantity);
-//     connection.query(`SELECT department_name FROM products WHERE id=${item.id}`, function(err, res) {
-//         if (err) throw err;
-//         var department = res[0].department_name;
-        
-//         connection.query(`SELECT product_sales FROM departments WHERE department_name="${department}"`,function(err, res) {
-//         var totalSales = res[0].product_sales;
-//         totalSales = parseFloat(totalSales) + parseFloat(sales);
-        
-//             connection.query(`UPDATE departments SET product_sales=${totalSales} WHERE department_name="${department}"`, function(err, res) {
-        
-//                 connection.query(`UPDATE products SET stock_quantity=(${parseFloat(item.stock_quantity)} - ${parseFloat(quantity)}), product_sales=(product_sales + (${parseFloat(item.price)} * ${parseFloat(quantity)})) WHERE id=${item.id}`, function(err, res) {
-//                 if (err) throw err;
 
-//             console.log("\nYour order was placed successfully!");
-//             console.log("Item: " + item.product_name);
-//             console.log("Quantity: " + quantity);
-//             console.log("Total cost: " + sales + "\n");
-//             display();
-//             }
-// )}
+function pickItem() {
+	inquire.prompt([
+	{
+		name: "id",
+		message: "Type in the ID number of the item you'd like to purchase".yellow,
+		validate: (value) => !isNaN(value)
+	},
+	{
+		name: "qty",
+		message: "How many would you like to buy?".yellow,
+		validate: (value) => !isNaN(value)
+	}
+	]).then((ans) => {
+		itemPicked(ans.id, ans.qty);
+	})
+}
+
+
+function itemPicked(id, qty) {
+	connection.query(`SELECT * FROM products WHERE id=${id}`, (err,res) => {
+		if (err) {
+			console.log(`\nYou've encountered an error.`.red);
+		}
+
+		if (qty > res[0].quantity) {
+			console.log(`\nInsufficient Quantity, please try again...\n`.red);
+		} else {
+			if (qty == 1) {
+				console.log(`\nYou have selected ${qty} ${res[0].description} for $${res[0].price}.`.green);
+				let total = qty*res[0].price;
+				console.log(`Your total amount due is: $${total}.\n`);
+				buyItem(id, res[0].quantity, qty, total);
+			} else if (qty > 1) {
+				console.log(`\nYou have selected ${qty} ${res[0].description} for $${res[0].price} each.`.green);
+				let total = qty*res[0].price;
+				console.log(`Your total amount due is: $${total}.\n`);
+				buyItem(id, res[0].quantity, qty, total);
+			}
+		}
+	});
+}
+
+
+function buyItem(id, itemQty, customerQty, total) {
+	let newQty = itemQty - customerQty;
+	inquire.prompt([
+	{
+		name: `payment`,
+		message: `Please Enter your Credit Card #`.cyan,
+		validate: (value) => !isNaN(value)
+	},
+	{
+		name: `confirm`,
+		message: `Are you sure you want to make this purchase?`.cyan,
+		type: 'confirm'
+	}
+	]).then((ans) => {
+		if (ans.confirm) {
+			console.log(`\nCongratulations on your new item.\n`.green);
+			updateDataQTY(id, newQty, total);
+		} else {
+			display();
+		}
+	})
+}
+
+function updateDataQTY(id, qty, total) {
+	connection.query("UPDATE products SET quantity=${qty}  WHERE id=${id}", (err, res) => {
+		if (err) throw err;
+	})
 }
